@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RSDoktorhut – Fernsteuerung</title>
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>RSDoktorhut</h1>
+    <p id="status" class="status">Nicht verbunden</p>
+  </header>
+
+  <main>
+    <p id="unsupported" class="notice hidden">
+      Dieser Browser unterstützt Web Bluetooth nicht. Bitte Chrome (Android)
+      oder Samsung Internet verwenden.
+    </p>
+
+    <button id="connect" class="primary">Gerät verbinden</button>
+
+    <section id="controls" class="hidden">
+      <div class="fog-state">
+        <span id="fog-state" class="pill">Unbekannt</span>
+        <span id="fog-remaining" class="pill hidden"></span>
+      </div>
+
+      <div class="window-state">
+        <span id="window-state" class="pill">Fenster: –</span>
+      </div>
+
+      <div class="buttons">
+        <button id="shot" class="action">Einmal-Nebel</button>
+        <button id="continuous" class="action">Dauerbetrieb starten</button>
+      </div>
+
+      <div class="duration">
+        <label for="duration">Fensterdauer (Sekunden, 30–3600)</label>
+        <div class="duration-row">
+          <input id="duration" type="number" min="30" max="3600" step="1" value="600" inputmode="numeric">
+          <button id="set-duration" class="secondary">Speichern</button>
+        </div>
+      </div>
+    </section>
+
+    <p id="hint" class="notice hidden"></p>
+
+    <section id="log-section">
+      <h2>Ereignisprotokoll</h2>
+      <ul id="log"></ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Verbindung nur möglich, solange das Fenster offen ist (Knopf am Gerät
+       drücken). Eine installierte App verbindet nicht im Hintergrund neu —
+       sie setzt die Verbindung fort, sobald sie wieder im Vordergrund ist.</p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
