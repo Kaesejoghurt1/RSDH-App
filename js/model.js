@@ -1,10 +1,19 @@
-// Device model for the PWA remote (ticket 04).
+// Device model for the PWA remote ("Die Brücke" UI).
 // Parses firmware reply lines into UI state. Line literals match
-// firmware/atomizer/atomizer.ino and tests/fake_board.py exactly.
+// firmware/atomizer/atomizer.ino and tests/fake_board.py exactly:
+//   status: idle | oneshot <N>s | on <N>s | continuous
+//   status: periodic <i>/<n> <int>s/<dur>s <fog|wait> <N>s
+//   tank: <N>s   led: <g><r><b>   window: open <N>s | closed | duration <N>s
+//   event: shot | shot-done | on-done | off | max-on
+//   event: salve <i>/<n> | salve-done <i> | program-done
 
 export function createModel({ now = Date.now } = {}) {
   const state = {
-    fog: 'unknown',
+    fog: 'unknown',          // unknown | idle | oneshot | continuous | timed | periodic
+    fogRemainingS: null,     // countdown baseline for oneshot/timed/periodic phase
+    periodic: null,          // { current, total, intervalS, durationS, phase }
+    tankS: null,             // remaining activity budget (null = unknown)
+    led: null,               // { g, r, b } booleans (null = unknown)
     events: [],
     pendingCommand: null,
     window: 'unknown',
@@ -32,25 +41,86 @@ export function createModel({ now = Date.now } = {}) {
     windowSyncAt = now();
   }
 
+  function setFog(fog, remainingS) {
+    state.fog = fog;
+    state.fogRemainingS = remainingS ?? null;
+    fogSyncAt = remainingS != null ? now() : null;
+  }
+
+  function ingestEvent(name, at) {
+    state.events.push({ name, at });
+    if (name === 'shot') {
+      setFog('oneshot', null);  // no baseline until the next status sync
+    } else if (name === 'shot-done' || name === 'on-done' || name === 'max-on' || name === 'off') {
+      setFog('idle', null);
+      state.periodic = null;
+    } else if (name.startsWith('salve ')) {
+      // event: salve <i>/<n> — a new salvo is fogging
+      const m = name.match(/^salve (\d+)\/(\d+)$/);
+      if (m) {
+        state.fog = 'periodic';
+        state.periodic = state.periodic
+          ?? { current: 0, total: 0, intervalS: null, durationS: null, phase: 'fog' };
+        state.periodic.current = Number(m[1]);
+        state.periodic.total = Number(m[2]);
+        state.periodic.phase = 'fog';
+        fogSyncAt = null;  // phase length comes from the next status sync
+      }
+    } else if (name.startsWith('salve-done')) {
+      // event: salve-done <i> — this salvo finished; wait phase follows
+      if (state.periodic) state.periodic.phase = 'wait';
+    } else if (name === 'program-done') {
+      setFog('idle', null);
+      state.periodic = null;
+    }
+    // Only the physical button emits shot/off — and every button
+    // press re-opens the window. Timer events never do.
+    if (name === 'shot' || name === 'off') resyncWindowOpen();
+    return { type: 'event', name, at };
+  }
+
   return {
     state,
     expect(command) {
       state.pendingCommand = command;
     },
     ingest(line) {
-      if (line.startsWith('status: oneshot ')) {
-        const m = line.match(/^status: oneshot (\d+)s$/);
-        if (m) {
-          state.fog = 'oneshot';
-          state.fogRemainingS = Number(m[1]);
-          fogSyncAt = now();
+      if (line.startsWith('status: ')) {
+        const body = line.slice(8);
+        if (body === 'idle') {
+          setFog('idle', null);
+          state.periodic = null;
+        } else if (body.startsWith('oneshot ')) {
+          const m = body.match(/^oneshot (\d+)s$/);
+          if (m) setFog('oneshot', Number(m[1]));
+        } else if (body.startsWith('on ')) {
+          const m = body.match(/^on (\d+)s$/);
+          if (m) {
+            setFog('timed', Number(m[1]));
+            state.periodic = null;
+          }
+        } else if (body === 'continuous') {
+          setFog('continuous', null);
+          state.periodic = null;
+        } else if (body.startsWith('periodic ')) {
+          const m = body.match(/^periodic (\d+)\/(\d+) (\d+)s\/(\d+)s (fog|wait) (\d+)s$/);
+          if (m) {
+            state.periodic = {
+              current: Number(m[1]),
+              total: Number(m[2]),
+              intervalS: Number(m[3]),
+              durationS: Number(m[4]),
+              phase: m[5],
+            };
+            setFog('periodic', Number(m[6]));
+          }
         }
-      } else if (line === 'status: idle') {
-        state.fog = 'idle';
-        fogSyncAt = null;
-      } else if (line === 'status: continuous') {
-        state.fog = 'continuous';
-        fogSyncAt = null;
+      } else if (line.startsWith('tank: ')) {
+        const m = line.match(/^tank: (\d+)s$/);
+        if (m) state.tankS = Number(m[1]);
+      } else if (line.startsWith('led: ')) {
+        const m = line.match(/^led: ([01])([01])([01])$/);
+        if (m) state.led = { g: m[1] === '1', r: m[2] === '1', b: m[3] === '1' };
       } else if (line === 'window: closed') {
         state.window = 'closed';
         state.windowRemainingS = 0;
@@ -69,20 +139,7 @@ export function createModel({ now = Date.now } = {}) {
           return { type: 'duration', seconds: Number(m[1]) };
         }
       } else if (line.startsWith('event: ')) {
-        const name = line.slice(7);
-        const at = now();
-        state.events.push({ name, at });
-        if (name === 'shot') {
-          state.fog = 'oneshot';
-          fogSyncAt = null;
-        } else if (name === 'shot-done' || name === 'max-on' || name === 'off') {
-          state.fog = 'idle';
-          fogSyncAt = null;
-        }
-        // Only the physical button emits shot/off — and every button
-        // press re-opens the window. Timer events never do.
-        if (name === 'shot' || name === 'off') resyncWindowOpen();
-        return { type: 'event', name, at };
+        return ingestEvent(line.slice(7), now());
       } else if (line === 'ok' || line.startsWith('err: ')) {
         const command = state.pendingCommand;
         state.pendingCommand = null;
@@ -113,7 +170,7 @@ export function createModel({ now = Date.now } = {}) {
       return remaining(windowSyncAt, state.windowRemainingS, 0);
     },
     fogRemaining() {
-      if (state.fog !== 'oneshot') return null;
+      if (state.fog !== 'oneshot' && state.fog !== 'timed' && state.fog !== 'periodic') return null;
       return remaining(fogSyncAt, state.fogRemainingS, null);
     },
   };

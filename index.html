@@ -1,60 +1,117 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RSDoktorhut – Fernsteuerung</title>
-  <meta name="theme-color" content="#1a1a2e">
+  <title>RS Doktorhut — Brücke</title>
+  <meta name="theme-color" content="#0a0e13">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>RSDoktorhut</h1>
-    <p id="status" class="status">Nicht verbunden</p>
+  <div id="fog"><i></i><i></i><i></i></div>
+
+  <header class="vb-head">
+    <span class="brand">🎓 RS DOKTORHUT — BRÜCKE</span>
+    <span id="window-chip" class="chip">Fenster –</span>
+    <button id="settings-btn" class="gear" title="Einstellungen">⚙️</button>
   </header>
 
-  <main>
-    <p id="unsupported" class="notice hidden">
-      Dieser Browser unterstützt Web Bluetooth nicht. Bitte Chrome (Android)
-      oder Samsung Internet verwenden.
-    </p>
+  <p id="status" class="status">Nicht verbunden</p>
+  <p id="unsupported" class="notice hidden">
+    Dieser Browser unterstützt Web Bluetooth nicht. Bitte Chrome (Android)
+    oder Samsung Internet verwenden.
+  </p>
+  <p id="hint" class="notice hidden"></p>
 
-    <button id="connect" class="primary">Gerät verbinden</button>
+  <button id="connect" class="connect-btn">Gerät verbinden</button>
 
-    <section id="controls" class="hidden">
-      <div class="fog-state">
-        <span id="fog-state" class="pill">Unbekannt</span>
-        <span id="fog-remaining" class="pill hidden"></span>
-      </div>
-
-      <div class="window-state">
-        <span id="window-state" class="pill">Fenster: –</span>
-      </div>
-
-      <div class="buttons">
-        <button id="shot" class="action">Einmal-Nebel</button>
-        <button id="continuous" class="action">Dauerbetrieb starten</button>
-      </div>
-
-      <div class="duration">
-        <label for="duration">Fensterdauer (Sekunden, 30–3600)</label>
-        <div class="duration-row">
-          <input id="duration" type="number" min="30" max="3600" step="1" value="600" inputmode="numeric">
-          <button id="set-duration" class="secondary">Speichern</button>
+  <main id="controls" class="bridge hidden">
+    <div class="panel">
+      <h3>MASCHINENTELEGRAF</h3>
+      <button id="master" class="telegraph">
+        <div class="dial">
+          <div class="js-needle"></div>
+          <span id="btn-emoji" class="js-btn-emoji">💨</span>
+          <span id="btn-label" class="js-btn-label">NEBEL!</span>
+          <span id="btn-sub" class="js-btn-sub">Einzelschuss · 10s</span>
         </div>
+      </button>
+      <div class="levers">
+        <label class="lever"><input type="radio" name="mode" value="oneshot" checked><span class="lv"></span>💨 Einzelschuss (10s)</label>
+        <label class="lever"><input type="radio" name="mode" value="vollvoraus"><span class="lv"></span>⚓ Voll voraus! (mit Dauer)</label>
+        <label class="lever"><input type="radio" name="mode" value="salven"><span class="lv"></span>🎇 Salvenfeuer (periodisch)</label>
       </div>
-    </section>
+      <div id="runinfo" class="runinfo">Bereit</div>
+      <div id="statusline" class="statusline">status: –</div>
+      <button id="wake" class="wake hidden">🎩 HUT NEUSTART</button>
+    </div>
 
-    <p id="hint" class="notice hidden"></p>
+    <div class="panel">
+      <h3>INSTRUMENTE</h3>
+      <div class="gaugerow">
+        <svg class="gauge" viewBox="0 0 120 120">
+          <circle class="gtrack" cx="60" cy="60" r="52" pathLength="100"/>
+          <circle id="g-win" class="gfill js-gwin" cx="60" cy="60" r="52" pathLength="100"/>
+          <text id="g-win-txt" class="gval" x="60" y="64">–</text>
+          <text class="glab" x="60" y="84">FENSTER</text>
+        </svg>
+        <svg class="gauge" viewBox="0 0 120 120">
+          <circle class="gtrack" cx="60" cy="60" r="52" pathLength="100"/>
+          <circle id="g-tank" class="gfill js-gtank" cx="60" cy="60" r="52" pathLength="100"/>
+          <text id="g-tank-txt" class="gval" x="60" y="64">–</text>
+          <text class="glab" x="60" y="84">VORRAT</text>
+        </svg>
+      </div>
+      <div id="param-oneshot" class="param">
+        <h4>💨 EINZELSCHUSS</h4>
+        <p class="pnote">Fester 10s-Nebelstoß (Firmware-Klassiker).</p>
+      </div>
+      <div id="param-vollvoraus" class="param hidden">
+        <h4>⚓ VOLL VORAUS! — DAUER</h4>
+        <div class="prow"><span>Dauer</span><input type="range" id="vv-s" min="5" max="180" step="5" value="60"><output id="vv-out">60s</output></div>
+        <p class="pnote">Dauerbetrieb mit Zeitvorgabe — läuft automatisch aus.</p>
+      </div>
+      <div id="param-salven" class="param hidden">
+        <h4>🎇 SALVENFEUER — FEUERPLAN</h4>
+        <div class="prow"><span>Intervall</span><input type="range" id="sv-int" min="5" max="120" step="5" value="30"><output id="sv-int-out">30s</output></div>
+        <div class="prow"><span>Salvendauer</span><input type="range" id="sv-dur" min="1" max="60" value="5"><output id="sv-dur-out">5s</output></div>
+        <div class="prow"><span>Wiederholungen</span><input type="number" id="sv-n" min="1" max="999" value="100"><output id="sv-n-out">×100</output></div>
+        <p class="pnote" id="sv-calc">Vorrat (180s) reicht für 36 Salven</p>
+      </div>
+    </div>
 
-    <section id="log-section">
-      <h2>Ereignisprotokoll</h2>
-      <ul id="log"></ul>
-    </section>
+    <div class="panel">
+      <h3>FUNK &amp; LICHT</h3>
+      <div class="lamps">
+        <div class="lamp"><span id="led-g" class="led led-g"></span>NEBEL</div>
+        <div class="lamp"><span id="led-r" class="led led-r"></span>MAX-ON</div>
+        <div class="lamp"><span id="led-b" class="led led-b"></span>FENSTER</div>
+      </div>
+      <details class="plog">
+        <summary>📜 Funkprotokoll <span id="logcount">(0)</span></summary>
+        <pre id="log" class="js-log"></pre>
+      </details>
+    </div>
   </main>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2>⚙️ Einstellungen</h2>
+      <label class="set-row" for="set-window">BTLE-An-Dauer (Verbindungsfenster): <output id="set-window-out">600s</output></label>
+      <input type="range" id="set-window" min="30" max="3600" step="30" value="600">
+      <fieldset>
+        <legend>LED-Konfiguration</legend>
+        <label><input type="checkbox" id="set-led-g" checked> 🟢 Grün — Nebel aktiv (EN hoch)</label>
+        <label><input type="checkbox" id="set-led-r" checked> 🔴 Rot — Doppelblitz bei Max-On</label>
+        <label><input type="checkbox" id="set-led-b" checked> 🔵 Blau — Fensterstatus (verbunden)</label>
+      </fieldset>
+      <div class="set-info">Trockenlauf-Schutz: max. 180s aktive Nebelzeit pro Programm (fest) · Einzelschuss: 10s (fest)</div>
+      <button value="close">Schließen</button>
+    </form>
+  </dialog>
 
   <footer>
     <p>Verbindung nur möglich, solange das Fenster offen ist (Knopf am Gerät

@@ -337,3 +337,122 @@ test('ok for a pending ble window command adopts the new duration', () => {
   assert.equal(model.state.window, 'open');
   assert.equal(model.windowRemaining(), 300);
 });
+
+// ---- new protocol lines (Voll voraus / Salvenfeuer / tank / led) ----
+
+test('status: on <N>s sets fog state to timed with remaining seconds', () => {
+  const model = createModel();
+  model.ingest('status: on 60s');
+  assert.equal(model.state.fog, 'timed');
+  assert.equal(model.state.fogRemainingS, 60);
+});
+
+test('status: periodic line is parsed into the periodic object', () => {
+  const model = createModel();
+  model.ingest('status: periodic 3/36 30s/5s fog 4s');
+  assert.equal(model.state.fog, 'periodic');
+  assert.deepEqual(model.state.periodic, {
+    current: 3, total: 36, intervalS: 30, durationS: 5, phase: 'fog',
+  });
+  assert.equal(model.state.fogRemainingS, 4);
+});
+
+test('status: periodic wait phase keeps the countdown baseline', () => {
+  let t = 1_000_000;
+  const model = createModel({ now: () => t });
+  model.ingest('status: periodic 3/36 30s/5s wait 12s');
+  assert.equal(model.state.periodic.phase, 'wait');
+  assert.equal(model.fogRemaining(), 12);
+  t += 2_000;
+  assert.equal(model.fogRemaining(), 10);
+});
+
+test('tank: <N>s stores the remaining activity budget', () => {
+  const model = createModel();
+  model.ingest('tank: 175s');
+  assert.equal(model.state.tankS, 175);
+});
+
+test('led: <g><r><b> stores the LED channel configuration', () => {
+  const model = createModel();
+  model.ingest('led: 101');
+  assert.deepEqual(model.state.led, { g: true, r: false, b: true });
+});
+
+test('event: on-done puts the fog state idle', () => {
+  const model = createModel();
+  model.ingest('status: on 60s');
+  model.ingest('event: on-done');
+  assert.equal(model.state.fog, 'idle');
+  assert.equal(model.state.periodic, null);
+});
+
+test('event: salve <i>/<n> starts a periodic run with fog phase', () => {
+  const model = createModel();
+  model.ingest('event: salve 1/36');
+  assert.equal(model.state.fog, 'periodic');
+  assert.equal(model.state.periodic.current, 1);
+  assert.equal(model.state.periodic.total, 36);
+  assert.equal(model.state.periodic.phase, 'fog');
+});
+
+test('event: salve-done switches the periodic phase to wait', () => {
+  const model = createModel();
+  model.ingest('event: salve 1/36');
+  model.ingest('event: salve-done 1');
+  assert.equal(model.state.periodic.phase, 'wait');
+});
+
+test('event: salve <i>/<n> advances the current salvo counter', () => {
+  const model = createModel();
+  model.ingest('event: salve 1/36');
+  model.ingest('event: salve-done 1');
+  model.ingest('event: salve 2/36');
+  assert.equal(model.state.periodic.current, 2);
+  assert.equal(model.state.periodic.phase, 'fog');
+});
+
+test('event: program-done puts the fog state idle and clears periodic', () => {
+  const model = createModel();
+  model.ingest('event: salve 1/36');
+  model.ingest('event: program-done');
+  assert.equal(model.state.fog, 'idle');
+  assert.equal(model.state.periodic, null);
+});
+
+test('fogRemaining() counts down for timed runs', () => {
+  let t = 1_000_000;
+  const model = createModel({ now: () => t });
+  model.ingest('status: on 60s');
+  assert.equal(model.fogRemaining(), 60);
+  t += 59_000;
+  assert.equal(model.fogRemaining(), 1);
+  t += 1_000;
+  assert.equal(model.fogRemaining(), 0);
+});
+
+test('fogRemaining() is null for continuous runs', () => {
+  const model = createModel();
+  model.ingest('status: continuous');
+  assert.equal(model.fogRemaining(), null);
+});
+
+test('salve events do not re-sync the window', () => {
+  let t = 1_000_000;
+  const model = createModel({ now: () => t });
+  model.ingest('window: duration 600s');
+  model.ingest('window: closed');
+  model.ingest('event: salve 1/36');
+  model.ingest('event: salve-done 1');
+  model.ingest('event: program-done');
+  assert.equal(model.state.window, 'closed');
+  assert.equal(model.windowRemaining(), 0);
+});
+
+test('status: on <N>s clears a stale periodic object', () => {
+  const model = createModel();
+  model.ingest('event: salve 1/36');
+  model.ingest('status: on 60s');
+  assert.equal(model.state.fog, 'timed');
+  assert.equal(model.state.periodic, null);
+});
