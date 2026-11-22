@@ -31,14 +31,15 @@
   <main id="controls" class="bridge hidden">
     <div class="panel">
       <h3>MASCHINENTELEGRAF</h3>
-      <button id="master" class="telegraph">
-        <div class="dial">
-          <div class="js-needle"></div>
-          <span id="btn-emoji" class="js-btn-emoji">💨</span>
-          <span id="btn-label" class="js-btn-label">NEBEL!</span>
-          <span id="btn-sub" class="js-btn-sub">Einzelschuss · 10s</span>
-        </div>
-      </button>
+      <div class="telegraph-wrap">
+        <button id="master" class="telegraph">
+          <div class="dial">
+            <div class="js-needle"></div>
+            <span id="btn-emoji" class="js-btn-emoji">💨</span>
+          </div>
+        </button>
+        <span id="btn-dur" class="js-btn-dur">10</span>
+      </div>
       <div class="levers">
         <label class="lever"><input type="radio" name="mode" value="oneshot" checked><span class="lv"></span>💨 Einzelschuss (10s)</label>
         <label class="lever"><input type="radio" name="mode" value="vollvoraus"><span class="lv"></span>⚓ Voll voraus! (mit Dauer)</label>

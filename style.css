@@ -76,9 +76,17 @@ body.window-closed .chip { background: #700; border-color: #f88; color: #fff; an
              transition: transform .7s cubic-bezier(.6,-0.2,.3,1.3); }
 body.running .js-needle { transform: translate(-50%,-100%) rotate(0deg); }
 .dial .js-btn-emoji { font-size: 46px; line-height: 1; z-index: 2; }
-.dial .js-btn-label { font: 900 20px system-ui; color: #fff; letter-spacing: 2px; z-index: 2; }
-.dial .js-btn-sub { font: 11px Consolas, monospace; color: #9fc1ff; margin-top: 4px;
-                    max-width: 140px; text-align: center; z-index: 2; }
+.telegraph-wrap { position: relative; width: fit-content; margin: 0 auto; }
+.js-btn-dur { position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%);
+              font: 700 20px Consolas, monospace; color: var(--warn); background: #0a0f16;
+              border: 1px solid #33507a; border-radius: 6px; padding: 5px 9px; min-width: 30px;
+              text-align: center; box-shadow: 0 0 10px #0009; }
+body.running .js-btn-dur { color: var(--danger); border-color: var(--danger); }
+/* Narrow phones: no room beside the dial — pin the placard to the rim. */
+@media (max-width: 560px) {
+  .js-btn-dur { left: auto; right: 4px; top: 6px; transform: none;
+                font-size: 15px; padding: 3px 7px; }
+}
 
 /* ---------- Levers (mode radios) ---------- */
 .levers { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }

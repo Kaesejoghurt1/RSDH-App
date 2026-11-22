@@ -20,8 +20,7 @@ const el = {
   settings: $('settings'),
   master: $('master'),
   btnEmoji: $('btn-emoji'),
-  btnLabel: $('btn-label'),
-  btnSub: $('btn-sub'),
+  btnDur: $('btn-dur'),
   runinfo: $('runinfo'),
   statusline: $('statusline'),
   wake: $('wake'),
@@ -140,6 +139,25 @@ function effSalven() {
   return Math.max(1, Math.min(Number(el.svN.value), Math.floor(MAX_TANK_S / dur)));
 }
 
+// Number placard next to the telegraph: configured duration when idle,
+// live progress when running. Salvo programs show the salvo counter —
+// the per-salve countdown is only synced for the first salvo (the app
+// never polls), so a seconds display would go dark mid-program.
+function badgeText() {
+  const s = model.state;
+  if (s.fog === 'idle' || s.fog === 'unknown') {
+    if (selectedMode === 'oneshot') return '10';
+    if (selectedMode === 'vollvoraus') return el.vvS.value;
+    return el.svDur.value;
+  }
+  if (s.fog === 'continuous') return '∞';
+  if (s.fog === 'periodic' && s.periodic) {
+    return s.periodic.current + '/' + s.periodic.total;
+  }
+  const left = model.fogRemaining();
+  return left == null ? '–' : String(left);
+}
+
 function runinfoText() {
   const s = model.state;
   if (s.fog === 'idle' || s.fog === 'unknown') {
@@ -187,8 +205,7 @@ function render() {
   // Master telegraph button
   el.master.classList.toggle('is-on', running);
   el.btnEmoji.textContent = running ? '🤯' : '💨';
-  el.btnLabel.textContent = running ? 'STOPP' : 'NEBEL!';
-  el.btnSub.textContent = running ? runinfoText() : MODE_LABELS[selectedMode] + ' · ' + modeSummary();
+  el.btnDur.textContent = badgeText();
 
   // Window chip + gauge
   const winLeft = model.windowRemaining();
@@ -361,7 +378,7 @@ function init() {
   });
 
   [el.vvS, el.svInt, el.svDur, el.svN].forEach((i) => {
-    i.addEventListener('input', renderParams);
+    i.addEventListener('input', () => { renderParams(); render(); });
   });
 
   el.wake.addEventListener('click', () => {
