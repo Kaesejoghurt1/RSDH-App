@@ -8,7 +8,7 @@ Installierbare, deutschsprachige PWA zur Steuerung des RSDoktorhut-Neblers über
 2. Drücke den Knopf am Gerät, um das Verbindungsfenster zu öffnen.
 3. Wähle **Gerät verbinden** und anschließend **RSDoktorhut**.
 4. Wähle am Maschinentelegraf einen Modus — 💨 Einzelschuss (10 s), ⚓ „Voll voraus!" (Dauer 5–180 s) oder 🎇 Salvenfeuer (periodisch: Intervall/Dauer/Wiederholungen) — und drücke den großen roten Knopf. Ein laufendes Programm stoppt derselbe Knopf (grau, 🤯).
-5. Weitere Einstellungen (BTLE-An-Dauer des Verbindungsfensters, LED-Kanäle) liegen im ⚙️-Dialog; das Funkprotokoll im eingeklappten Spoiler.
+5. Weitere Einstellungen (BTLE-An-Dauer des Verbindungsfensters, LED-Kanäle) liegen im ⚙️-Dialog; das Logbuch im eingeklappten Spoiler.
 6. Installiere die PWA über das Browser-Menü, falls gewünscht.
 
 Die App verbindet sich nur im Vordergrund erneut. Außerhalb des Verbindungsfensters ist das BLE-Radio des Geräts ausgeschaltet.

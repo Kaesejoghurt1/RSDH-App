@@ -1,6 +1,6 @@
 ﻿/* RS Doktorhut — "Die Brücke" (Schiffscockpit-UI, aus dem UI-Prototyp
    übernommen: Variante B). Dunkles Brückendeck, Maschinentelegraf,
-   Hebel, Instrumente, Lampen, Funkprotokoll im Spoiler. */
+   Hebel, Instrumente, Lampen, Logbuch im Spoiler. */
 
 :root {
   --bg: #0a0e13;
@@ -137,7 +137,7 @@ body.running .js-needle { transform: translate(-50%,-100%) rotate(0deg); }
         margin-top: 12px; }
 .wake:active { translate: 2px 2px; box-shadow: 2px 2px 0 #000; }
 
-/* ---------- Funkprotokoll spoiler ---------- */
+/* ---------- Logbuch spoiler ---------- */
 .plog { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-top: 12px; }
 .plog summary { cursor: pointer; font-weight: 800; color: #9fc1ff; }
 .plog .js-log { max-height: 170px; overflow: auto; font: 12px/1.5 Consolas, monospace;

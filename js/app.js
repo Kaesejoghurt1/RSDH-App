@@ -102,7 +102,7 @@ function showDisconnectHint(kind) {
     : 'Fenster ist zu. Am Gerät den Knopf drücken, dann „Gerät verbinden".');
 }
 
-/* ---------- Funkprotokoll ---------- */
+/* ---------- Logbuch ---------- */
 const logLines = [];
 function logLine(cls, text) {
   const t = new Date();
