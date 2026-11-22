@@ -61,7 +61,7 @@ let disconnectHint = null; // 'lost' | 'closed' | null
 let selectedMode = 'oneshot';
 let maxOnFlashUntil = 0;
 
-const MAX_TANK_S = 180;
+const MAX_TANK_S = 540;
 const WINDOW_DURATION_MIN_S = 30;
 const WINDOW_DURATION_MAX_S = 3600;
 
@@ -137,7 +137,7 @@ function modeSummary() {
 
 function effSalven() {
   const dur = Number(el.svDur.value);
-  const tank = model.tankRemaining() ?? MAX_TANK_S;
+  const tank = Math.max(0, model.tankRemaining() ?? MAX_TANK_S);
   return Math.max(1, Math.min(Number(el.svN.value), Math.floor(tank / dur)));
 }
 
@@ -220,10 +220,12 @@ function render() {
   el.gWinTxt.textContent = s.window === 'open' ? fmt(winLeft) : (s.window === 'closed' ? 'AUS' : '–');
 
   // Tank gauge — live countdown while fog runs, synced at every fog end.
+  // Negative = overdraft after a button override past the empty boundary.
   const tank = model.tankRemaining();
-  const tankFrac = tank == null ? 0 : Math.min(1, tank / MAX_TANK_S);
+  const tankFrac = tank == null ? 0 : Math.max(0, Math.min(1, tank / MAX_TANK_S));
   el.gTank.setAttribute('stroke-dashoffset', String(100 - tankFrac * 100));
-  el.gTankTxt.textContent = tank == null ? '–' : Math.ceil(tank) + 's';
+  el.gTankTxt.textContent = tank == null ? '–'
+    : tank < 0 ? '−' + Math.ceil(-tank) + 's' : Math.ceil(tank) + 's';
   el.gTank.classList.toggle('empty', tank != null && tank <= 0);
 
   // Lamps
@@ -257,7 +259,7 @@ function renderParams() {
   el.svDurOut.textContent = el.svDur.value + 's';
   el.svNOut.textContent = '×' + el.svN.value;
   const tank = model.tankRemaining();
-  el.svCalc.textContent = 'Vorrat (' + (tank == null ? '180' : Math.ceil(tank)) + 's) reicht für '
+  el.svCalc.textContent = 'Vorrat (' + (tank == null ? '540' : Math.ceil(Math.max(0, tank))) + 's) reicht für '
     + effSalven() + ' Salven';
 }
 

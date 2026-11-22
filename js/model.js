@@ -3,7 +3,8 @@
 // firmware/atomizer/atomizer.ino and tests/fake_board.py exactly:
 //   status: idle | oneshot <N>s | on <N>s | continuous
 //   status: periodic <i>/<n> <int>s/<dur>s <fog|wait> <N>s
-//   tank: <N>s   led: <g><r><b>   window: open <N>s | closed | duration <N>s
+//   tank: <N>s | tank: -<N>s (button-override overdraft)
+//   led: <g><r><b>   window: open <N>s | closed | duration <N>s
 //   event: shot | shot-done | on-done | off | max-on
 //   event: salve <i>/<n> | salve-done <i> | program-done
 // The tank counts down locally while fog runs (EN high); the firmware
@@ -144,11 +145,14 @@ export function createModel({ now = Date.now } = {}) {
           }
         }
       } else if (line.startsWith('tank: ')) {
-        const m = line.match(/^tank: (\d+)s$/);
+        const m = line.match(/^tank: (-?\d+)s$/);
         if (m) {
           state.tankS = Number(m[1]);
           // Fresh baseline from the device: ticking only while fog runs.
-          tankSyncAt = (state.fog === 'oneshot' || state.fog === 'timed'
+          // Negative (button override overdraft) freezes — it only
+          // changes at fog ends, never mid-run.
+          tankSyncAt = state.tankS > 0
+            && (state.fog === 'oneshot' || state.fog === 'timed'
               || state.fog === 'continuous' || state.fog === 'periodic')
             ? now() : null;
         }
@@ -209,6 +213,8 @@ export function createModel({ now = Date.now } = {}) {
     },
     tankRemaining() {
       if (state.tankS === null) return null;
+      // Negative = overdraft after a button override: frozen, not ticking.
+      if (state.tankS < 0) return state.tankS;
       return remaining(tankSyncAt, state.tankS, state.tankS);
     },
   };
