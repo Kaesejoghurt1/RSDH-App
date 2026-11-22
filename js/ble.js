@@ -17,14 +17,24 @@ export function isWebBluetoothSupported() {
 //   onLine(line)        fired for every complete line from the device
 //   onStatus(s)         'connecting' | 'connected' | 'disconnected'
 //   shouldReconnect()   polled after a disconnect; true -> keep retrying
-//                       via getDevices() (no chooser, no user gesture)
+//                       via gatt.connect() on the held device (no chooser)
 export function createBle({ onLine, onStatus, shouldReconnect = () => false }) {
   let device = null;
   let rxd = null;
   let lineBuf = '';
   let reconnectTimer = null;
+  let lastStatus = 'disconnected';
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
+
+  // Idempotent status reporting — handleDisconnected() can now be invoked
+  // from send() as well as from the gattserverdisconnected event, and a
+  // late duplicate event must not re-trigger side effects.
+  function setStatus(s) {
+    if (s === lastStatus) return;
+    lastStatus = s;
+    onStatus(s);
+  }
 
   async function connect() {
     // Must be called from a user gesture (pointerup/click/touchend).
@@ -37,7 +47,12 @@ export function createBle({ onLine, onStatus, shouldReconnect = () => false }) {
   }
 
   async function connectGatt() {
-    onStatus('connecting');
+    setStatus('connecting');
+    // Chrome can hold a stale gatt.connected=true after the radio link died
+    // (e.g. Android Bluetooth toggled off/on); connect() is then a no-op
+    // served from cache. Force-drop the zombie first so connect() has to
+    // establish a real link.
+    if (device.gatt.connected) device.gatt.disconnect();
     const server = await device.gatt.connect();
     // GATT attributes are invalidated on every disconnect — re-get them all.
     const service = await server.getPrimaryService(NUS_SERVICE);
@@ -46,7 +61,13 @@ export function createBle({ onLine, onStatus, shouldReconnect = () => false }) {
     await txd.startNotifications();
     txd.addEventListener('characteristicvaluechanged', handleNotify);
     lineBuf = '';
-    onStatus('connected');
+    setStatus('connected');
+    // A reconnect timer scheduled before this success would fire 2 s later
+    // and force-disconnect the fresh link — cancel it.
+    if (reconnectTimer !== null) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
   }
 
   function handleNotify(event) {
@@ -63,8 +84,13 @@ export function createBle({ onLine, onStatus, shouldReconnect = () => false }) {
   }
 
   function handleDisconnected() {
+    // The force-disconnect in connectGatt() fires this event while a
+    // connect attempt is in flight — that drop is self-inflicted, not a
+    // lost link. Swallow it so it cannot schedule a reconnect that would
+    // kill the fresh connection.
+    if (lastStatus === 'connecting') return;
     rxd = null;
-    onStatus('disconnected');
+    setStatus('disconnected');
     if (shouldReconnect()) scheduleReconnect();
   }
 
@@ -77,18 +103,28 @@ export function createBle({ onLine, onStatus, shouldReconnect = () => false }) {
     reconnectTimer = null;
     if (!device || !shouldReconnect()) return;
     try {
-      const devices = await navigator.bluetooth.getDevices();
-      const known = devices.find((d) => d.id === device.id);
-      if (!known) return;
+      // Reconnect directly on the held device object — no chooser, no
+      // user gesture. Never consult getDevices(): Chrome can omit the
+      // device there, which silently killed the retry loop.
       await connectGatt();
-    } catch {
+    } catch (e) {
+      console.warn('[ble] reconnect failed, retrying', e);
       scheduleReconnect();  // out of range / window closed: keep retrying
     }
   }
 
   async function send(line) {
     if (!rxd) throw new Error('Nicht verbunden');
-    await rxd.writeValue(encoder.encode(line + '\n'));
+    try {
+      await rxd.writeValue(encoder.encode(line + '\n'));
+    } catch (e) {
+      // Chrome does not reliably fire gattserverdisconnected when the link
+      // dies silently (e.g. Android Bluetooth toggled off/on) — the failed
+      // GATT write is the real signal. Route it through the disconnect path
+      // so the reconnect loop engages instead of a zombie "connected".
+      handleDisconnected();
+      throw e;
+    }
   }
 
   return {
