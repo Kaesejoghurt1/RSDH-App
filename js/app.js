@@ -28,6 +28,7 @@ const el = {
   gWinTxt: $('g-win-txt'),
   gTank: $('g-tank'),
   gTankTxt: $('g-tank-txt'),
+  refill: $('refill'),
   ledG: $('led-g'),
   ledR: $('led-r'),
   ledB: $('led-b'),
@@ -136,7 +137,8 @@ function modeSummary() {
 
 function effSalven() {
   const dur = Number(el.svDur.value);
-  return Math.max(1, Math.min(Number(el.svN.value), Math.floor(MAX_TANK_S / dur)));
+  const tank = model.tankRemaining() ?? MAX_TANK_S;
+  return Math.max(1, Math.min(Number(el.svN.value), Math.floor(tank / dur)));
 }
 
 // Number placard next to the telegraph: configured duration when idle,
@@ -217,10 +219,12 @@ function render() {
   el.gWin.setAttribute('stroke-dashoffset', String(100 - winFrac * 100));
   el.gWinTxt.textContent = s.window === 'open' ? fmt(winLeft) : (s.window === 'closed' ? 'AUS' : '–');
 
-  // Tank gauge
-  const tankFrac = s.tankS == null ? 0 : Math.min(1, s.tankS / MAX_TANK_S);
+  // Tank gauge — live countdown while fog runs, synced at every fog end.
+  const tank = model.tankRemaining();
+  const tankFrac = tank == null ? 0 : Math.min(1, tank / MAX_TANK_S);
   el.gTank.setAttribute('stroke-dashoffset', String(100 - tankFrac * 100));
-  el.gTankTxt.textContent = s.tankS == null ? '–' : Math.ceil(s.tankS) + 's';
+  el.gTankTxt.textContent = tank == null ? '–' : Math.ceil(tank) + 's';
+  el.gTank.classList.toggle('empty', tank != null && tank <= 0);
 
   // Lamps
   el.ledG.classList.toggle('on', fogging && (s.led?.g ?? true));
@@ -252,7 +256,9 @@ function renderParams() {
   el.svIntOut.textContent = el.svInt.value + 's';
   el.svDurOut.textContent = el.svDur.value + 's';
   el.svNOut.textContent = '×' + el.svN.value;
-  el.svCalc.textContent = 'Vorrat (180s) reicht für ' + effSalven() + ' Salven';
+  const tank = model.tankRemaining();
+  el.svCalc.textContent = 'Vorrat (' + (tank == null ? '180' : Math.ceil(tank)) + 's) reicht für '
+    + effSalven() + ' Salven';
 }
 
 function flashRed() {
@@ -384,6 +390,10 @@ function init() {
   el.wake.addEventListener('click', () => {
     // The window is closed — only the physical button can re-open it.
     showHint('Fenster ist zu. Am Gerät den Knopf drücken, dann „Gerät verbinden".');
+  });
+
+  el.refill.addEventListener('click', () => {
+    sendCommand('refill');
   });
 
   el.settingsBtn.addEventListener('click', () => {

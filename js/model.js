@@ -6,6 +6,8 @@
 //   tank: <N>s   led: <g><r><b>   window: open <N>s | closed | duration <N>s
 //   event: shot | shot-done | on-done | off | max-on
 //   event: salve <i>/<n> | salve-done <i> | program-done
+// The tank counts down locally while fog runs (EN high); the firmware
+// re-syncs it with a "tank:" line after every fog end and on refill.
 
 export function createModel({ now = Date.now } = {}) {
   const state = {
@@ -23,6 +25,10 @@ export function createModel({ now = Date.now } = {}) {
 
   let windowSyncAt = null;
   let fogSyncAt = null;
+  // Tank countdown: baseline timestamp while fog is running (EN high),
+  // null while paused. The firmware re-syncs with "tank:" lines at every
+  // fog end; between those, the model counts down locally.
+  let tankSyncAt = null;
 
   // Seconds left on a countdown that started at `syncAt` with `totalS`
   // seconds; `expired` is returned when there is no baseline.
@@ -41,10 +47,30 @@ export function createModel({ now = Date.now } = {}) {
     windowSyncAt = now();
   }
 
+  // Snapshot the counted-down tank into tankS and stop the countdown.
+  // Called at every fog end; the firmware's authoritative "tank:" line
+  // follows immediately and re-syncs.
+  function freezeTank() {
+    if (tankSyncAt !== null && state.tankS !== null) {
+      state.tankS = remaining(tankSyncAt, state.tankS, state.tankS);
+    }
+    tankSyncAt = null;
+  }
+
   function setFog(fog, remainingS) {
     state.fog = fog;
     state.fogRemainingS = remainingS ?? null;
     fogSyncAt = remainingS != null ? now() : null;
+    // Tank baseline follows the fog state: ticking while fog runs
+    // (EN high), frozen while idle or in a salvo wait phase.
+    const fogRunning = fog === 'oneshot' || fog === 'timed'
+      || fog === 'continuous'
+      || (fog === 'periodic' && state.periodic?.phase !== 'wait');
+    if (fogRunning && state.tankS !== null && state.tankS > 0) {
+      tankSyncAt = now();
+    } else {
+      freezeTank();
+    }
   }
 
   function ingestEvent(name, at) {
@@ -65,10 +91,12 @@ export function createModel({ now = Date.now } = {}) {
         state.periodic.total = Number(m[2]);
         state.periodic.phase = 'fog';
         fogSyncAt = null;  // phase length comes from the next status sync
+        if (state.tankS !== null && state.tankS > 0) tankSyncAt = now();
       }
     } else if (name.startsWith('salve-done')) {
       // event: salve-done <i> — this salvo finished; wait phase follows
       if (state.periodic) state.periodic.phase = 'wait';
+      freezeTank();  // EN low during the pause: tank frozen
     } else if (name === 'program-done') {
       setFog('idle', null);
       state.periodic = null;
@@ -117,7 +145,13 @@ export function createModel({ now = Date.now } = {}) {
         }
       } else if (line.startsWith('tank: ')) {
         const m = line.match(/^tank: (\d+)s$/);
-        if (m) state.tankS = Number(m[1]);
+        if (m) {
+          state.tankS = Number(m[1]);
+          // Fresh baseline from the device: ticking only while fog runs.
+          tankSyncAt = (state.fog === 'oneshot' || state.fog === 'timed'
+              || state.fog === 'continuous' || state.fog === 'periodic')
+            ? now() : null;
+        }
       } else if (line.startsWith('led: ')) {
         const m = line.match(/^led: ([01])([01])([01])$/);
         if (m) state.led = { g: m[1] === '1', r: m[2] === '1', b: m[3] === '1' };
@@ -172,6 +206,10 @@ export function createModel({ now = Date.now } = {}) {
     fogRemaining() {
       if (state.fog !== 'oneshot' && state.fog !== 'timed' && state.fog !== 'periodic') return null;
       return remaining(fogSyncAt, state.fogRemainingS, null);
+    },
+    tankRemaining() {
+      if (state.tankS === null) return null;
+      return remaining(tankSyncAt, state.tankS, state.tankS);
     },
   };
 }

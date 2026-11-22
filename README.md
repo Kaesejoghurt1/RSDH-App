@@ -8,8 +8,9 @@ Installierbare, deutschsprachige PWA zur Steuerung des RSDoktorhut-Neblers über
 2. Drücke den Knopf am Gerät, um das Verbindungsfenster zu öffnen.
 3. Wähle **Gerät verbinden** und anschließend **RSDoktorhut**.
 4. Wähle am Maschinentelegraf einen Modus — 💨 Einzelschuss (10 s), ⚓ „Voll voraus!" (Dauer 5–180 s) oder 🎇 Salvenfeuer (periodisch: Intervall/Dauer/Wiederholungen) — und drücke den großen roten Knopf. Ein laufendes Programm stoppt derselbe Knopf (grau, 🤯). Das Zahlen-Badge daneben zeigt die Dauer (Restzeit bzw. Salvenzähler).
-5. Weitere Einstellungen (BTLE-An-Dauer des Verbindungsfensters, LED-Kanäle) liegen im ⚙️-Dialog; das Logbuch im eingeklappten Spoiler.
-6. Installiere die PWA über das Browser-Menü, falls gewünscht.
+5. Der **Vorratsanzeiger** zeigt das 180-s-Wasser-Budget, das über Programme und Neustarts mitläuft und nur bei aktivem Nebel abnimmt. Nach dem Wasser-Nachfüllen bestätigt der Button **💧 Nachgefüllt** den vollen Vorrat wieder.
+6. Weitere Einstellungen (BTLE-An-Dauer des Verbindungsfensters, LED-Kanäle) liegen im ⚙️-Dialog; das Logbuch im eingeklappten Spoiler.
+7. Installiere die PWA über das Browser-Menü, falls gewünscht.
 
 Die App verbindet sich nur im Vordergrund erneut. Außerhalb des Verbindungsfensters ist das BLE-Radio des Geräts ausgeschaltet.
 

@@ -1,7 +1,7 @@
 // Service worker for the PWA remote (ticket 04).
 // Cache-first for the app shell; no runtime caching of anything else.
 
-const CACHE = 'rsdoktorhut-v4';
+const CACHE = 'rsdoktorhut-v5';
 const SHELL = [
   '.',
   'index.html',
